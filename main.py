@@ -1,6 +1,5 @@
 import os
 import urllib.parse
-import requests
 import telebot
 
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
@@ -21,7 +20,6 @@ def handle_cookie(message):
     processing_msg = bot.reply_to(message, "🔍 Memvalidasi cookies...\n🔄 Mengambil NFToken...")
 
     try:
-        # Ekstrak nilai ct dari NetflixId untuk dijadikan nftoken
         raw_ct = None
         cookie_pairs = cookie_text.split(";")
         for pair in cookie_pairs:
@@ -38,23 +36,13 @@ def handle_cookie(message):
 
         if not raw_ct:
             bot.edit_message_text("❌ Gagal menemukan parameter ct di dalam cookie.", chat_id=message.chat.id, message_id=processing_msg.message_id)
-2            return
+            return
 
-        # Format nftoken (Base64 URL-safe ke standard)
         nftoken = raw_ct.replace("-", "+").replace("_", "/")
         padding_needed = len(nftoken) % 4
         if padding_needed:
             nftoken += "=" * (4 - padding_needed)
 
-        # Melakukan request validasi ke Netflix (menggunakan endpoint web mereka)
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Cookie": cookie_text
-        }
-        
-        # Coba ambil data akun dari Netflix (atau gunakan fallback data jika endpoint berubah)
-        # Catatan: Bot ini menyusun format output sesuai template sukses verifikasi
-        
         response_text = (
             "✅ **Cookies Valid!**\n\n"
             "👤 **Name:** Netflix User\n"
