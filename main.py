@@ -46,13 +46,13 @@ def handle_inspect(message):
                 label = src.get("label")
                 file_url = src.get("file")
                 
-                if label in ["1080", "720"] and file_url:
+                if label in ["4K", "4k", "2160", "1440", "1080", "720"] and file_url:
                     links_1080_720.append(f"**{label}p**:\n`{file_url}`")
 
         if links_1080_720:
             response_text = "\n\n".join(links_1080_720)
         else:
-            response_text = "❌ Link MP4 1080p/720p tidak ditemukan."
+            response_text = "❌ Link MP4 tidak ditemukan."
 
         bot.edit_message_text(response_text, chat_id=message.chat.id, message_id=processing_msg.message_id, parse_mode="Markdown")
 
