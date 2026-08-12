@@ -2,7 +2,6 @@ import os
 import urllib.parse
 import telebot
 
-# Mengambil token bot dari Environment Variable (GitHub Secrets)
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 
 if not TOKEN:
@@ -18,10 +17,10 @@ def handle_cookie(message):
         bot.reply_to(message, "❌ Format tidak valid. Harap kirimkan string cookie Netflix yang mengandung NetflixId.")
         return
 
-    processing_msg = bot.reply_to(message, "⏳ Mengekstrak nftoken...")
+    processing_msg = bot.reply_to(message, "⏳ Mengonversi format nftoken...")
 
     try:
-        extracted_token = None
+        raw_ct = None
         
         # Pisahkan berdasarkan titik koma (;)
         cookie_pairs = cookie_text.split(";")
@@ -29,26 +28,32 @@ def handle_cookie(message):
             if "=" in pair:
                 key, value = pair.strip().split("=", 1)
                 if key == "NetflixId":
-                    # Decode URL cookie
                     decoded_val = urllib.parse.unquote(value)
-                    
-                    # Pecah parameter di dalam NetflixId (v=3&ct=...&pg=...)
                     params = decoded_val.split("&")
                     for p in params:
                         if p.startswith("ct="):
-                            extracted_token = p.split("=", 1)[1]
+                            raw_ct = p.split("=", 1)[1]
                             break
                     break
 
-        if extracted_token:
-            response_text = f"`{extracted_token}`"
+        if raw_ct:
+            # Mengubah format Base64 URL-safe (simbol - dan _) 
+            # menjadi format standard Base64 (simbol + dan /)
+            standard_b64 = raw_ct.replace("-", "+").replace("_", "/")
+            
+            # Menambahkan padding '=' jika panjangnya kurang pas kelipatan 4
+            padding_needed = len(standard_b64) % 4
+            if padding_needed:
+                standard_b64 += "=" * (4 - padding_needed)
+
+            response_text = f"`{standard_b64}`"
         else:
-            response_text = "❌ Gagal menemukan parameter ct/token di dalam cookie."
+            response_text = "❌ Gagal menemukan parameter ct di dalam cookie."
 
         bot.edit_message_text(response_text, chat_id=message.chat.id, message_id=processing_msg.message_id, parse_mode="Markdown")
 
     except Exception as e:
         bot.edit_message_text(f"❌ Error: `{str(e)}`", chat_id=message.chat.id, message_id=processing_msg.message_id, parse_mode="Markdown")
 
-print("Bot ekstraktor nftoken aktif...")
+print("Bot konversi nftoken aktif...")
 bot.infinity_polling()
