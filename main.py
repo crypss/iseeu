@@ -1,67 +1,55 @@
 import os
-import time
+import urllib.parse
 import telebot
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
 
-# Mengambil token dari Environment Variable sistem komputer/server
+# Mengambil token bot dari Environment Variable (GitHub Secrets)
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 
 if not TOKEN:
-    raise ValueError("❌ Token bot belum diset! Harap atur environment variable TELEGRAM_BOT_TOKEN terlebih dahulu.")
+    raise ValueError("❌ Token bot belum diset di Environment Variable!")
 
 bot = telebot.TeleBot(TOKEN)
 
 @bot.message_handler(func=lambda message: True)
-def handle_inspect(message):
-    url = message.text.strip()
+def handle_cookie(message):
+    cookie_text = message.text.strip()
     
-    if not url.startswith("http"):
-        bot.reply_to(message, "❌ Kirimkan URL yang valid.")
+    # Validasi sederhana apakah pesan terlihat seperti cookie Netflix
+    if "NetflixId=" not in cookie_text:
+        bot.reply_to(message, "❌ Format tidak valid. Harap kirimkan string cookie Netflix yang lengkap (harus mengandung NetflixId).")
         return
 
-    processing_msg = bot.reply_to(message, "⏳ Mengambil link mp4...")
+    processing_msg = bot.reply_to(message, "⏳ Sedang memproses dan mengekstrak token...")
 
-    options = Options()
-    options.add_argument("--headless")
-    options.add_argument("--disable-gpu")
-    options.add_argument("--no-sandbox")
-    options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
-
-    driver = None
     try:
-        service = Service(ChromeDriverManager().install())
-        driver = webdriver.Chrome(service=service, options=options)
+        nftoken_result = None
         
-        driver.get(url)
-        time.sleep(3)
+        # Pisahkan cookie berdasarkan titik koma (;)
+        cookie_pairs = cookie_text.split(";")
+        for pair in cookie_pairs:
+            if "=" in pair:
+                key, value = pair.strip().split("=", 1)
+                if key == "NetflixId":
+                    # Decode URL (mengubah %3D menjadi =, dll)
+                    decoded_val = urllib.parse.unquote(value)
+                    
+                    # Di dalam NetflixId, token nftoken biasanya diekstrak dari bagian value-nya.
+                    # Jika formatnya mengandung parameter atau nilai tertentu, kita ambil bagian kodenya.
+                    nftoken_result = decoded_val
+                    break
 
-        playlist_data = driver.execute_script("return window.playlist;")
-
-        links_1080_720 = []
-        if playlist_data and "sources" in playlist_data:
-            for src in playlist_data["sources"]:
-                label = src.get("label")
-                file_url = src.get("file")
-                
-                if label in ["4K", "4k", "2160", "1440", "1080", "720"] and file_url:
-                    links_1080_720.append(f"**{label}p**:\n`{file_url}`")
-
-        if links_1080_720:
-            response_text = "\n\n".join(links_1080_720)
+        if nftoken_result:
+            response_text = (
+                f"✅ **Berhasil Mendapatkan Token!**\n\n"
+                f"🔑 **nftoken / NetflixId Decoded:**\n`{nftoken_result}`"
+            )
         else:
-            response_text = "❌ Link MP4 tidak ditemukan."
+            response_text = "❌ Gagal menemukan parameter NetflixId di dalam cookie tersebut."
 
         bot.edit_message_text(response_text, chat_id=message.chat.id, message_id=processing_msg.message_id, parse_mode="Markdown")
 
     except Exception as e:
-        bot.edit_message_text(f"❌ Error: `{str(e)}`", chat_id=message.chat.id, message_id=processing_msg.message_id, parse_mode="Markdown")
-    
-    finally:
-        if driver:
-            driver.quit()
+        bot.edit_message_text(f"❌ Terjadi kesalahan: `{str(e)}`", chat_id=message.chat.id, message_id=processing_msg.message_id, parse_mode="Markdown")
 
-print("Bot aktif...")
+print("Bot Telegram ekstraktor cookie aktif...")
 bot.infinity_polling()
